@@ -16,6 +16,8 @@ def test_pyproject_has_public_package_metadata():
     assert project["authors"]
     assert project["urls"]["Homepage"] == "https://github.com/rockeron/md-man"
     assert project["urls"]["Repository"] == "https://github.com/rockeron/md-man"
+    assert isinstance(project["dependencies"], list)
+    assert "dependencies" not in project["urls"]
     assert "Topic :: Text Processing :: Markup :: Markdown" in project["classifiers"]
     assert "License :: OSI Approved :: MIT License" not in project["classifiers"]
 
