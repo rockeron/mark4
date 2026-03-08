@@ -42,3 +42,13 @@ async def test_t_key_toggles_korean_translation(tmp_path):
 
         assert app.current_view_markdown == "# 번역됨"
         assert app.show_translation is True
+
+
+@pytest.mark.asyncio
+async def test_invalid_root_path_shows_error_state(tmp_path):
+    missing = tmp_path / "missing"
+    app = MarkdownBrowserApp(root_path=str(missing))
+
+    async with app.run_test():
+        viewer = app.query_one("#viewer")
+        assert "경로를 열 수 없습니다" in viewer.content

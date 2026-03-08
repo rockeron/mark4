@@ -16,3 +16,15 @@ Screen {
   border: round $surface;
   padding: 1 2;
 }
+
+#markdown-view {
+  width: 1fr;
+  border: round $surface;
+  padding: 1 2;
+}
+
+#status {
+  height: auto;
+  padding: 0 1;
+  color: $text-muted;
+}
