@@ -1,0 +1,18 @@
+Screen {
+  layout: vertical;
+}
+
+#body {
+  height: 1fr;
+}
+
+#tree {
+  width: 32;
+  border: round $surface;
+}
+
+#viewer {
+  width: 1fr;
+  border: round $surface;
+  padding: 1 2;
+}
