@@ -1,0 +1,10 @@
+#!/usr/bin/env sh
+
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+VENV_PY="$SCRIPT_DIR/.venv/bin/python"
+
+if [ -x "$VENV_PY" ]; then
+  PYTHONPATH="$SCRIPT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" exec "$VENV_PY" -m md_man "$@"
+fi
+
+PYTHONPATH="$SCRIPT_DIR/src${PYTHONPATH:+:$PYTHONPATH}" exec python3 -m md_man "$@"
