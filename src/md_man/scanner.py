@@ -17,12 +17,23 @@ class MarkdownTree:
 
 
 def scan_markdown_tree(root_path: Path) -> MarkdownTree:
-    markdown_files = [
-        MarkdownNode(
-            absolute_path=path,
-            relative_path=path.relative_to(root_path).as_posix(),
-        )
-        for path in sorted(root_path.rglob("*.md"))
-        if path.is_file()
-    ]
+    markdown_files: list[MarkdownNode] = []
+
+    def on_error(error: OSError) -> None:
+        return None
+
+    for current_root, _, filenames in root_path.walk(on_error=on_error):
+        for filename in sorted(filenames):
+            if not filename.lower().endswith(".md"):
+                continue
+
+            path = current_root / filename
+            markdown_files.append(
+                MarkdownNode(
+                    absolute_path=path,
+                    relative_path=path.relative_to(root_path).as_posix(),
+                )
+            )
+
+    markdown_files.sort(key=lambda node: node.relative_path)
     return MarkdownTree(root_path=root_path, markdown_files=markdown_files)

@@ -5,6 +5,7 @@ from hashlib import sha256
 import json
 import re
 from pathlib import Path
+import shutil
 from typing import Callable, Protocol
 
 from deep_translator import GoogleTranslator
@@ -12,6 +13,16 @@ from platformdirs import user_cache_dir
 
 
 ProgressCallback = Callable[[str, int, int], None]
+
+
+def translation_cache_dir() -> Path:
+    return Path(user_cache_dir("md-man")) / "translations"
+
+
+def clear_translation_cache(cache_dir: Path | None = None) -> None:
+    target = cache_dir or translation_cache_dir()
+    if target.exists():
+        shutil.rmtree(target)
 
 
 class Translator(Protocol):
@@ -33,10 +44,12 @@ class DeepTranslatorProvider:
         translator: Translator | None = None,
         max_length: int = 4000,
         cache_dir: Path | None = None,
+        cache_enabled: bool = True,
     ) -> None:
         self._translator = translator or GoogleTranslator(source="auto", target="ko")
         self._max_length = max_length
-        self._cache_dir = cache_dir or Path(user_cache_dir("md-man")) / "translations"
+        self._cache_dir = cache_dir or translation_cache_dir()
+        self._cache_enabled = cache_enabled
 
     def translate(self, text: str) -> str:
         return self.translate_document(path=None, text=text)
@@ -82,6 +95,8 @@ class DeepTranslatorProvider:
         return translated
 
     def get_cached_translation(self, path: Path, text: str) -> str | None:
+        if not self._cache_enabled:
+            return None
         cache_path = self._cache_path(path, text)
         if not cache_path.exists():
             return None
@@ -94,6 +109,8 @@ class DeepTranslatorProvider:
         return payload.get("translated_text")
 
     def _write_cached_translation(self, path: Path, text: str, translated: str) -> None:
+        if not self._cache_enabled:
+            return
         self._cache_dir.mkdir(parents=True, exist_ok=True)
         payload = {
             "path": str(path.resolve()),

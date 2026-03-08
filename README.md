@@ -36,21 +36,30 @@ You can also use:
 PYTHONPATH=src .venv/bin/python -m md_man /path/to/markdown/root
 ```
 
+Public-safe options:
+
+```bash
+./md-man --no-translate /path/to/markdown/root
+./md-man --no-cache /path/to/markdown/root
+./md-man --clear-cache /path/to/markdown/root
+```
+
 ## Key Bindings
 
-- `Up` / `Down`: move selection
-- `Left` / `Right`: collapse or expand directories
+- Mouse click: select files and folders
+- `Up` / `Down`: move tree selection
+- `Left` / `Right`: collapse or expand directories in the tree
 - `Enter`: open the selected markdown file
-- `Tab`: switch focus between the tree and the document view
-- `j` / `k`: vim-style up / down movement
-- `g` / `G`: jump to top / bottom
 - `r`: rescan the root path
-- `t`: toggle Korean translation
+- `t`: first show the translation privacy warning, then toggle Korean translation
 - `?`: show help text in the status line
 - `q`: quit
 
 ## Translation Behavior
 
+- On the first translation attempt in a session, `md-man` warns that document
+  content will be sent to an external translation service and may be stored in
+  the local cache. Press `t` again to continue.
 - Press `t` on an open document to switch the right pane into translation mode.
 - Translation runs chunk by chunk and the viewer updates as translated chunks
   arrive.
@@ -58,6 +67,7 @@ PYTHONPATH=src .venv/bin/python -m md_man /path/to/markdown/root
 - If a chunk translation returns no text, the app falls back to the original
   chunk instead of crashing.
 - Press `t` again to return to the source markdown.
+- Use `--no-translate` to disable all external translation requests.
 
 ## Translation Cache
 
@@ -77,6 +87,9 @@ Cache validity is based on:
 If the markdown file changes, the previous cached translation is ignored and a
 new translation is generated.
 
+- Use `--no-cache` to disable persistent cache reads and writes.
+- Use `--clear-cache` to remove the persistent translation cache directory.
+
 ## Status Messages
 
 The status line reports the current document path and important events such as:
@@ -92,5 +105,5 @@ The status line reports the current document path and important events such as:
 - Translation still depends on the external translator provider and network
   availability.
 - Cached translations are not pruned automatically yet.
-- Partial translation rendering may look rough while a long document is still
-  in progress because the markdown view is updated incrementally.
+- Large markdown trees may still take time to render because the full file tree
+  is built in the TUI.

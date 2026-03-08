@@ -1,6 +1,10 @@
 from pathlib import Path
 
-from md_man.translator import DeepTranslatorProvider, DocumentTranslationState
+from md_man.translator import (
+    DeepTranslatorProvider,
+    DocumentTranslationState,
+    clear_translation_cache,
+)
 
 
 def test_translation_state_toggles_to_cached_korean_text():
@@ -103,3 +107,29 @@ def test_deep_translator_provider_reuses_persistent_cache_across_instances(tmp_p
 
     assert translated == "HELLO WORLD"
     assert cached == translated
+
+
+def test_deep_translator_provider_can_disable_persistent_cache(tmp_path):
+    source_path = Path("/tmp/example.md")
+    source = "hello world"
+    provider = DeepTranslatorProvider(
+        translator=RecordingTranslator(),
+        cache_dir=tmp_path,
+        cache_enabled=False,
+    )
+
+    translated = provider.translate_document(source_path, source)
+
+    assert translated == "HELLO WORLD"
+    assert provider.get_cached_translation(source_path, source) is None
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_clear_translation_cache_removes_cache_directory(tmp_path):
+    cache_file = tmp_path / "translations" / "cached.json"
+    cache_file.parent.mkdir(parents=True)
+    cache_file.write_text("{}", encoding="utf-8")
+
+    clear_translation_cache(cache_file.parent)
+
+    assert not cache_file.parent.exists()

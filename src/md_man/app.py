@@ -20,7 +20,19 @@ class MarkdownBrowserApp(App[None]):
         ("q", "quit", "Quit"),
     ]
 
-    def __init__(self, root_path: str, translator: Translator | None = None) -> None:
+    TRANSLATION_WARNING = (
+        "번역은 외부 번역 서비스로 문서를 전송하고 로컬 캐시에 저장할 수 있습니다. "
+        "계속하려면 t를 한 번 더 누르세요."
+    )
+
+    def __init__(
+        self,
+        root_path: str,
+        translator: Translator | None = None,
+        *,
+        translation_enabled: bool = True,
+        persistent_cache_enabled: bool = True,
+    ) -> None:
         super().__init__()
         self.root_path = Path(root_path)
         self.current_file: Path | None = None
@@ -28,11 +40,16 @@ class MarkdownBrowserApp(App[None]):
         self.current_view_markdown: str | None = None
         self.show_translation = False
         self.last_error: str | None = None
-        self.translator = translator or DeepTranslatorProvider()
+        self.translation_enabled = translation_enabled
+        self.persistent_cache_enabled = persistent_cache_enabled
+        self.translator = translator or DeepTranslatorProvider(
+            cache_enabled=persistent_cache_enabled
+        )
         self.translation_state = DocumentTranslationState()
         self._translation_request_id = 0
         self._active_translation_request_id: int | None = None
         self._scroll_positions: dict[tuple[str, str], float] = {}
+        self._translation_warning_acknowledged = False
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -68,7 +85,14 @@ class MarkdownBrowserApp(App[None]):
     def open_markdown(self, path: Path) -> None:
         self._remember_current_scroll()
         self._cancel_translation_render_workers()
-        markdown = path.read_text(encoding="utf-8")
+        try:
+            markdown = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            self.current_view_markdown = None
+            self.query_one("#viewer", Static).update("문서를 읽을 수 없습니다")
+            self.query_one("#viewer-switcher", ContentSwitcher).current = "viewer"
+            self.set_status(f"문서를 읽을 수 없습니다: {path}")
+            return
         self.current_file = path
         self.current_markdown = markdown
         self.current_view_markdown = markdown
@@ -82,6 +106,17 @@ class MarkdownBrowserApp(App[None]):
 
     def action_toggle_translation(self) -> None:
         if self.current_file is None or self.current_markdown is None:
+            return
+
+        if not self.translation_enabled:
+            self.set_status("번역 기능이 비활성화되어 있습니다")
+            return
+
+        if not self._translation_warning_acknowledged:
+            self._translation_warning_acknowledged = True
+            self.query_one("#translation-pending", Static).update(self.TRANSLATION_WARNING)
+            self.query_one("#viewer-switcher", ContentSwitcher).current = "translation-pending"
+            self.set_status(self.TRANSLATION_WARNING)
             return
 
         path_key = str(self.current_file)

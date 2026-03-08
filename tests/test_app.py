@@ -1,3 +1,4 @@
+from pathlib import Path
 import pytest
 import time
 
@@ -88,9 +89,44 @@ async def test_t_key_toggles_korean_translation(tmp_path):
     async with app.run_test() as pilot:
         await pilot.press("enter")
         await pilot.press("t")
+        await pilot.press("t")
 
         assert app.current_view_markdown == "# 번역됨"
         assert app.show_translation is True
+
+
+@pytest.mark.asyncio
+async def test_first_translation_requires_explicit_privacy_confirmation(tmp_path):
+    doc = tmp_path / "guide.md"
+    doc.write_text("# Guide", encoding="utf-8")
+
+    app = MarkdownBrowserApp(root_path=str(tmp_path), translator=StubTranslator())
+
+    async with app.run_test() as pilot:
+        await pilot.press("enter")
+        await pilot.press("t")
+
+        assert app.show_translation is False
+        assert "외부 번역 서비스" in app.query_one("#status").content
+
+
+@pytest.mark.asyncio
+async def test_translation_can_be_disabled_for_public_safe_mode(tmp_path):
+    doc = tmp_path / "guide.md"
+    doc.write_text("# Guide", encoding="utf-8")
+
+    app = MarkdownBrowserApp(
+        root_path=str(tmp_path),
+        translator=StubTranslator(),
+        translation_enabled=False,
+    )
+
+    async with app.run_test() as pilot:
+        await pilot.press("enter")
+        await pilot.press("t")
+
+        assert app.show_translation is False
+        assert "비활성화" in app.query_one("#status").content
 
 
 @pytest.mark.asyncio
@@ -135,6 +171,7 @@ async def test_translation_progressively_updates_the_viewer(tmp_path):
     async with app.run_test() as pilot:
         await pilot.press("enter")
         await pilot.press("t")
+        await pilot.press("t")
         await pilot.pause(0.05)
 
         assert app.current_view_markdown == "# 1차 번역"
@@ -158,6 +195,7 @@ async def test_translation_shows_pending_message_before_first_chunk(tmp_path):
 
     async with app.run_test() as pilot:
         await pilot.press("enter")
+        await pilot.press("t")
         await pilot.press("t")
         pending = app.query_one("#translation-pending")
 
@@ -253,6 +291,7 @@ async def test_cached_translation_is_shown_immediately(tmp_path):
     async with app.run_test() as pilot:
         await pilot.press("enter")
         await pilot.press("t")
+        await pilot.press("t")
 
         assert app.current_view_markdown == "# 캐시된 번역"
         assert "캐시된 번역 불러옴" in app.query_one("#status").content
@@ -269,9 +308,29 @@ async def test_pressing_t_again_restores_source_markdown(tmp_path):
         await pilot.press("enter")
         await pilot.press("t")
         await pilot.press("t")
+        await pilot.press("t")
 
         assert app.current_view_markdown == "# Guide\n\nbody"
         assert "번역 취소됨" in app.query_one("#status").content
+
+
+@pytest.mark.asyncio
+async def test_open_markdown_shows_error_when_document_cannot_be_read(tmp_path, monkeypatch):
+    doc = tmp_path / "guide.md"
+    doc.write_text("# Guide", encoding="utf-8")
+
+    app = MarkdownBrowserApp(root_path=str(tmp_path))
+
+    def fail_read_text(*args, **kwargs):
+        raise UnicodeDecodeError("utf-8", b"\xff", 0, 1, "boom")
+
+    monkeypatch.setattr(Path, "read_text", fail_read_text)
+
+    async with app.run_test():
+        app.open_markdown(doc)
+
+        assert "읽을 수 없습니다" in app.query_one("#status").content
+        assert app.query_one("#viewer-switcher").current == "viewer"
 
 
 @pytest.mark.asyncio

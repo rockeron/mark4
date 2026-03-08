@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from md_man.scanner import scan_markdown_tree
 from textual.widgets import Tree
 from textual.widgets._tree import TreeNode
 
@@ -22,16 +23,21 @@ class MarkdownTree(Tree[Path]):
 
         directories: dict[Path, TreeNode[Path]] = {self.root_path: self.root}
 
-        for path in sorted(self.root_path.rglob("*")):
-            parent = directories.get(path.parent, self.root)
+        for markdown_file in scan_markdown_tree(self.root_path).markdown_files:
+            path = markdown_file.absolute_path
+            current_parent = self.root_path
+            parent_node = self.root
 
-            if path.is_dir():
-                directories[path] = parent.add(path.name, data=path, expand=True)
-                continue
+            for part in path.relative_to(self.root_path).parts[:-1]:
+                current_parent = current_parent / part
+                if current_parent not in directories:
+                    directories[current_parent] = parent_node.add(
+                        part,
+                        data=current_parent,
+                        expand=True,
+                    )
+                parent_node = directories[current_parent]
 
-            if path.suffix.lower() != ".md":
-                continue
-
-            node = parent.add_leaf(path.name, data=path)
+            node = parent_node.add_leaf(path.name, data=path)
             if self.first_file_node is None:
                 self.first_file_node = node
