@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from md_man.translator import DeepTranslatorProvider, DocumentTranslationState
 
 
@@ -29,6 +31,11 @@ class NoneReturningTranslator:
         if len(self.calls) == 1:
             return None
         return text.upper()
+
+
+class FailingTranslator:
+    def translate(self, text: str) -> str:
+        raise AssertionError("persistent cache should have been used")
 
 
 def test_deep_translator_provider_splits_long_text_into_chunks():
@@ -73,3 +80,26 @@ def test_deep_translator_provider_falls_back_to_original_chunk_on_none_response(
     translated = provider.translate(source)
 
     assert translated == "first paragraph\n\nSECOND PARAGRAPH"
+
+
+def test_deep_translator_provider_reuses_persistent_cache_across_instances(tmp_path):
+    source_path = Path("/tmp/example.md")
+    source = "hello world"
+    first = DeepTranslatorProvider(
+        translator=RecordingTranslator(),
+        cache_dir=tmp_path,
+        max_length=100,
+    )
+
+    translated = first.translate_document(source_path, source)
+
+    second = DeepTranslatorProvider(
+        translator=FailingTranslator(),
+        cache_dir=tmp_path,
+        max_length=100,
+    )
+
+    cached = second.translate_document(source_path, source)
+
+    assert translated == "HELLO WORLD"
+    assert cached == translated

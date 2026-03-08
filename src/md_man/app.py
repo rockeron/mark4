@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from textual import work
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal
 from textual.widgets import ContentSwitcher, Footer, Header, Markdown, Static
@@ -29,6 +30,8 @@ class MarkdownBrowserApp(App[None]):
         self.last_error: str | None = None
         self.translator = translator or DeepTranslatorProvider()
         self.translation_state = DocumentTranslationState()
+        self._translation_request_id = 0
+        self._active_translation_request_id: int | None = None
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -66,6 +69,7 @@ class MarkdownBrowserApp(App[None]):
         self.current_markdown = markdown
         self.current_view_markdown = markdown
         self.show_translation = False
+        self._active_translation_request_id = None
         self.query_one("#markdown-view", Markdown).update(markdown)
         self.query_one("#viewer-switcher", ContentSwitcher).current = "markdown-view"
         self.set_status(str(path))
@@ -75,19 +79,54 @@ class MarkdownBrowserApp(App[None]):
             return
 
         path_key = str(self.current_file)
-        translated = self.translation_state.cache.get(path_key)
-        if translated is None:
-            translated = self.translator.translate(self.current_markdown)
-            self.translation_state.cache_translation(path_key, translated)
+        if self.show_translation:
+            self._active_translation_request_id = None
+            self.translation_state.visible_paths.discard(path_key)
+            self.show_translation = False
+            self.current_view_markdown = self.current_markdown
+            self.query_one("#markdown-view", Markdown).update(self.current_markdown)
+            self.query_one("#viewer-switcher", ContentSwitcher).current = "markdown-view"
+            self.set_status(str(self.current_file))
+            return
 
-        _, is_showing_translation = self.translation_state.toggle(path_key)
-        self.show_translation = is_showing_translation
-        self.current_view_markdown = (
-            translated if self.show_translation else self.current_markdown
+        translated = self.translation_state.get_cached_translation(
+            path_key,
+            self.current_markdown,
         )
-        self.query_one("#markdown-view", Markdown).update(self.current_view_markdown)
+        if translated is None:
+            translated = self.translator.get_cached_translation(
+                self.current_file,
+                self.current_markdown,
+            )
+            if translated is not None:
+                self.translation_state.cache_translation(
+                    path_key,
+                    translated,
+                    self.current_markdown,
+                )
+
+        if translated is not None:
+            self.translation_state.visible_paths.add(path_key)
+            self.show_translation = True
+            self.current_view_markdown = translated
+            self.query_one("#markdown-view", Markdown).update(translated)
+            self.query_one("#viewer-switcher", ContentSwitcher).current = "markdown-view"
+            self.set_status("한국어 번역 보기")
+            return
+
+        self._translation_request_id += 1
+        self._active_translation_request_id = self._translation_request_id
+        self.translation_state.visible_paths.add(path_key)
+        self.show_translation = True
+        self.current_view_markdown = ""
+        self.query_one("#markdown-view", Markdown).update("")
         self.query_one("#viewer-switcher", ContentSwitcher).current = "markdown-view"
-        self.set_status("한국어 번역 보기" if self.show_translation else str(self.current_file))
+        self.set_status("번역 중...")
+        self.run_translation_worker(
+            self._translation_request_id,
+            self.current_file,
+            self.current_markdown,
+        )
 
     def action_refresh_tree(self) -> None:
         if not self.root_path.exists():
@@ -115,3 +154,99 @@ class MarkdownBrowserApp(App[None]):
 
     def set_status(self, message: str) -> None:
         self.query_one("#status", Static).update(message)
+
+    @work(thread=True, exclusive=True, group="translation", exit_on_error=False)
+    def run_translation_worker(
+        self,
+        request_id: int,
+        path: Path,
+        markdown: str,
+    ) -> None:
+        try:
+            translated = self.translator.translate_document(
+                path,
+                markdown,
+                on_progress=lambda partial, completed, total: self.call_from_thread(
+                    self.apply_translation_progress,
+                    request_id,
+                    path,
+                    markdown,
+                    partial,
+                    completed,
+                    total,
+                ),
+            )
+        except Exception as exc:
+            self.call_from_thread(
+                self.handle_translation_error,
+                request_id,
+                path,
+                str(exc),
+            )
+            return
+
+        self.call_from_thread(
+            self.finish_translation,
+            request_id,
+            path,
+            markdown,
+            translated,
+        )
+
+    def apply_translation_progress(
+        self,
+        request_id: int,
+        path: Path,
+        markdown: str,
+        partial: str,
+        completed: int,
+        total: int,
+    ) -> None:
+        if not self._should_render_translation(request_id, path):
+            return
+
+        self.current_view_markdown = partial
+        self.query_one("#markdown-view", Markdown).update(partial)
+        self.query_one("#viewer-switcher", ContentSwitcher).current = "markdown-view"
+        self.set_status(f"번역 중 {completed}/{total}")
+
+    def finish_translation(
+        self,
+        request_id: int,
+        path: Path,
+        markdown: str,
+        translated: str,
+    ) -> None:
+        path_key = str(path)
+        self.translation_state.cache_translation(path_key, translated, markdown)
+        self.translation_state.visible_paths.add(path_key)
+
+        if not self._should_render_translation(request_id, path):
+            return
+
+        self.show_translation = True
+        self.current_view_markdown = translated
+        self.query_one("#markdown-view", Markdown).update(translated)
+        self.query_one("#viewer-switcher", ContentSwitcher).current = "markdown-view"
+        self.set_status("한국어 번역 보기")
+
+    def handle_translation_error(
+        self,
+        request_id: int,
+        path: Path,
+        error_message: str,
+    ) -> None:
+        if not self._should_render_translation(request_id, path):
+            return
+
+        self.show_translation = False
+        if self.current_markdown is not None:
+            self.current_view_markdown = self.current_markdown
+            self.query_one("#markdown-view", Markdown).update(self.current_markdown)
+        self.set_status(f"번역 실패: {error_message}")
+
+    def _should_render_translation(self, request_id: int, path: Path) -> bool:
+        return (
+            self.current_file == path
+            and self._active_translation_request_id == request_id
+        )

@@ -6,6 +6,7 @@ readme = "docs/plans/2026-03-08-markdown-tui-design.md"
 requires-python = ">=3.12"
 dependencies = [
   "deep-translator>=1.11.4,<2",
+  "platformdirs>=4.9.4,<5",
   "rich>=14.1.0,<15",
   "textual>=6.1.0,<7",
 ]
