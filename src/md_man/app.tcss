@@ -8,19 +8,28 @@ Screen {
 
 #tree {
   width: 32;
+  height: 1fr;
   border: round $surface;
+}
+
+#viewer-switcher {
+  width: 1fr;
+  height: 1fr;
 }
 
 #viewer {
   width: 1fr;
+  height: 1fr;
   border: round $surface;
   padding: 1 2;
 }
 
 #markdown-view {
   width: 1fr;
+  height: 1fr;
   border: round $surface;
   padding: 1 2;
+  overflow-y: auto;
 }
 
 #status {

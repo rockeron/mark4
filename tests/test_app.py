@@ -1,6 +1,7 @@
 import pytest
 
 from md_man.app import MarkdownBrowserApp
+from textual.widgets import Markdown
 
 
 class StubTranslator:
@@ -52,3 +53,22 @@ async def test_invalid_root_path_shows_error_state(tmp_path):
     async with app.run_test():
         viewer = app.query_one("#viewer")
         assert "경로를 열 수 없습니다" in viewer.content
+
+
+@pytest.mark.asyncio
+async def test_markdown_viewer_scrolls_for_long_documents(tmp_path):
+    doc = tmp_path / "long.md"
+    doc.write_text(
+        "\n\n".join(
+            f"# Title {index}\n" + ("line\n" * 20) for index in range(40)
+        ),
+        encoding="utf-8",
+    )
+
+    app = MarkdownBrowserApp(root_path=str(tmp_path))
+
+    async with app.run_test() as pilot:
+        await pilot.press("enter")
+        viewer = app.query_one("#markdown-view", Markdown)
+
+        assert viewer.max_scroll_y > 0

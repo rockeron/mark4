@@ -1,4 +1,4 @@
-from md_man.translator import DocumentTranslationState
+from md_man.translator import DeepTranslatorProvider, DocumentTranslationState
 
 
 def test_translation_state_toggles_to_cached_korean_text():
@@ -9,3 +9,67 @@ def test_translation_state_toggles_to_cached_korean_text():
 
     assert translated == "# 안녕하세요"
     assert show_translation is True
+
+
+class RecordingTranslator:
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+
+    def translate(self, text: str) -> str:
+        self.calls.append(text)
+        return text.upper()
+
+
+class NoneReturningTranslator:
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+
+    def translate(self, text: str) -> str | None:
+        self.calls.append(text)
+        if len(self.calls) == 1:
+            return None
+        return text.upper()
+
+
+def test_deep_translator_provider_splits_long_text_into_chunks():
+    translator = RecordingTranslator()
+    provider = DeepTranslatorProvider(translator=translator, max_length=40)
+    source = ("first paragraph\n\nsecond paragraph\n\n" * 4).strip()
+
+    translated = provider.translate(source)
+
+    assert translated == source.upper()
+    assert len(translator.calls) > 1
+    assert all(len(call) <= 40 for call in translator.calls)
+
+
+def test_deep_translator_provider_preserves_code_blocks_and_inline_code():
+    translator = RecordingTranslator()
+    provider = DeepTranslatorProvider(translator=translator, max_length=200)
+    source = (
+        "hello `code_sample()` world\n\n"
+        "```python\n"
+        "print('keep me')\n"
+        "```\n\n"
+        "bye"
+    )
+
+    translated = provider.translate(source)
+
+    assert translated == (
+        "HELLO `code_sample()` WORLD\n\n"
+        "```python\n"
+        "print('keep me')\n"
+        "```\n\n"
+        "BYE"
+    )
+
+
+def test_deep_translator_provider_falls_back_to_original_chunk_on_none_response():
+    translator = NoneReturningTranslator()
+    provider = DeepTranslatorProvider(translator=translator, max_length=20)
+    source = "first paragraph\n\nsecond paragraph"
+
+    translated = provider.translate(source)
+
+    assert translated == "first paragraph\n\nSECOND PARAGRAPH"
