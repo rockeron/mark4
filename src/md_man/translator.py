@@ -16,7 +16,7 @@ ProgressCallback = Callable[[str, int, int], None]
 
 
 def translation_cache_dir() -> Path:
-    return Path(user_cache_dir("md-man")) / "translations"
+    return Path(user_cache_dir("mark4")) / "translations"
 
 
 def clear_translation_cache(cache_dir: Path | None = None) -> None:

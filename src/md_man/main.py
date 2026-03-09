@@ -13,7 +13,7 @@ class RunnableApp(Protocol):
 
 
 def parse_args(argv: list[str] | None = None) -> Namespace:
-    parser = ArgumentParser(prog="md-man")
+    parser = ArgumentParser(prog="mark4")
     parser.add_argument(
         "--no-translate",
         action="store_true",

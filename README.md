@@ -1,6 +1,6 @@
-# md-man
+# mark4
 
-`md-man` is a Textual-based TUI for browsing markdown files under a root
+`mark4` is a Textual-based TUI for browsing markdown files under a root
 directory, reading them in a two-pane layout, and translating the selected
 document into Korean.
 
@@ -27,7 +27,7 @@ uv sync --extra dev
 ## Run
 
 ```bash
-./md-man /path/to/markdown/root
+./mark4 /path/to/markdown/root
 ```
 
 You can also use:
@@ -39,9 +39,9 @@ PYTHONPATH=src .venv/bin/python -m md_man /path/to/markdown/root
 Public-safe options:
 
 ```bash
-./md-man --no-translate /path/to/markdown/root
-./md-man --no-cache /path/to/markdown/root
-./md-man --clear-cache /path/to/markdown/root
+./mark4 --no-translate /path/to/markdown/root
+./mark4 --no-cache /path/to/markdown/root
+./mark4 --clear-cache /path/to/markdown/root
 ```
 
 ## Key Bindings
@@ -57,7 +57,7 @@ Public-safe options:
 
 ## Translation Behavior
 
-- On the first translation attempt in a session, `md-man` warns that document
+- On the first translation attempt in a session, `mark4` warns that document
   content will be sent to an external translation service and may be stored in
   the local cache. Press `t` again to continue.
 - Press `t` on an open document to switch the right pane into translation mode.
@@ -74,9 +74,9 @@ Public-safe options:
 Translated documents are cached in a global user cache directory so they can be
 reused after restarting the app.
 
-- macOS: `~/Library/Caches/md-man/translations/`
-- Linux: `~/.cache/md-man/translations/`
-- Windows: `%LOCALAPPDATA%/md-man/translations/`
+- macOS: `~/Library/Caches/mark4/translations/`
+- Linux: `~/.cache/mark4/translations/`
+- Windows: `%LOCALAPPDATA%/mark4/translations/`
 
 Cache validity is based on:
 

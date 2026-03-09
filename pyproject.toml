@@ -1,5 +1,5 @@
 [project]
-name = "md-man"
+name = "mark4"
 version = "1.0.0"
 description = "Markdown TUI viewer with translation support"
 readme = "README.md"
@@ -29,11 +29,11 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/rockeron/md-man"
-Repository = "https://github.com/rockeron/md-man"
+Homepage = "https://github.com/rockeron/mark4"
+Repository = "https://github.com/rockeron/mark4"
 
 [project.scripts]
-md-man = "md_man.main:main"
+mark4 = "md_man.main:main"
 
 [project.optional-dependencies]
 dev = [
